@@ -1,0 +1,5 @@
+<Solution>
+  <Project Path="PavamanDroneConfigurator.Core/PavamanDroneConfigurator.Core.csproj" />
+  <Project Path="PavamanDroneConfigurator.Infrastructure/PavamanDroneConfigurator.Infrastructure.csproj" />
+  <Project Path="PavamanDroneConfigurator/PavamanDroneConfigurator.csproj" />
+</Solution>

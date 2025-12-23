@@ -1,0 +1,28 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Asv.Mavlink" Version="4.0.18" />
+    <PackageReference Include="Duende.IdentityModel.OidcClient" Version="7.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.1" />
+    <PackageReference Include="System.IO.Ports" Version="10.0.1" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\PavamanDroneConfigurator.Core\PavamanDroneConfigurator.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Folder Include="MAVLink\" />
+    <Folder Include="Calibration\" />
+    <Folder Include="Firmware\" />
+    <Folder Include="Safety\" />
+    <Folder Include="Serial\" />
+  </ItemGroup>
+
+</Project>
