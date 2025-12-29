@@ -8,18 +8,8 @@ namespace PavamanDroneConfigurator.Core.Interfaces
     /// Interface for serial port communication service.
     /// Provides methods for discovering, connecting, and disconnecting from serial ports.
     /// </summary>
-    public interface ISerialPortService
+    public interface ISerialPortService : IConnectionService
     {
-        /// <summary>
-        /// Gets a value indicating whether the serial port is currently connected.
-        /// </summary>
-        bool IsConnected { get; }
-
-        /// <summary>
-        /// Occurs when the connection state changes.
-        /// </summary>
-        event EventHandler<bool>? ConnectionStateChanged;
-
         /// <summary>
         /// Gets the list of available COM ports on the system.
         /// </summary>
@@ -36,11 +26,5 @@ namespace PavamanDroneConfigurator.Core.Interfaces
         /// <exception cref="ArgumentException">Thrown when port name is invalid.</exception>
         /// <exception cref="TimeoutException">Thrown when connection times out.</exception>
         Task ConnectAsync(string portName, int baudRate);
-
-        /// <summary>
-        /// Asynchronously disconnects from the current serial port.
-        /// </summary>
-        /// <returns>A task that represents the asynchronous operation.</returns>
-        Task DisconnectAsync();
     }
 }

@@ -4,7 +4,14 @@ This folder contains MAVLink protocol implementation for drone communication.
 
 ## Purpose
 
-Implement MAVLink (Micro Air Vehicle Link) protocol for communicating with ArduPilot-based flight controllers.
+Implement MAVLink (Micro Air Vehicle Link) protocol for communicating with ArduPilot-based flight controllers via multiple connection types.
+
+## Connection Types
+
+The configurator supports two connection types:
+
+1. **Serial/USB Connection**: Direct connection via COM port (implemented in `../Serial/`)
+2. **TCP Connection**: Network-based connection for SITL or remote drones (implemented in `../Tcp/`)
 
 ## Contents
 
@@ -15,11 +22,14 @@ Implement MAVLink (Micro Air Vehicle Link) protocol for communicating with ArduP
 
 ## Dependencies
 
-This module uses the **Asv.Mavlink** library (MIT License) for MAVLink protocol support.
+This module uses the **Asv.Mavlink** library (MIT License) for MAVLink protocol support, which includes:
+- **Asv.IO**: Low-level port abstraction for Serial, TCP, and UDP
+- **MAVLink V2**: Protocol implementation
 
 ## Guidelines
 
 - Use Asv.Mavlink library for core protocol operations
+- Use Asv.IO for connection management (Serial, TCP, UDP)
 - Implement connection retry logic with exponential backoff
 - Handle message versioning (MAVLink 1.0 and 2.0)
 - Validate message checksums before processing
@@ -32,7 +42,7 @@ namespace PavamanDroneConfigurator.Infrastructure.MAVLink
 {
     public class MavLinkService : IMavLinkService
     {
-        private readonly ISerialPortService _serialPort;
+        private readonly IConnectionService _connection;
         
         public async Task<HeartbeatMessage> WaitForHeartbeat(int timeoutMs)
         {

@@ -99,6 +99,12 @@ namespace PavamanDroneConfigurator.Infrastructure.Serial
         }
 
         /// <inheritdoc/>
+        public Task ConnectAsync()
+        {
+            throw new NotSupportedException("Serial port service requires port name and baud rate. Use ConnectAsync(string portName, int baudRate) instead.");
+        }
+
+        /// <inheritdoc/>
         public async Task DisconnectAsync()
         {
             if (!IsConnected)
