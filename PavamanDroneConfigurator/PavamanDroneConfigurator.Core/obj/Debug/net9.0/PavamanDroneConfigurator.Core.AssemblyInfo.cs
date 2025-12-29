@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("PavamanDroneConfigurator.Core")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+121d82bd39ad44001edfa08f7ee2684332c6099b")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+e0b3f7cfa5ba93b25ee2c2b22673d57fa79dbbf1")]
 [assembly: System.Reflection.AssemblyProductAttribute("PavamanDroneConfigurator.Core")]
 [assembly: System.Reflection.AssemblyTitleAttribute("PavamanDroneConfigurator.Core")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
