@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.IO.Ports;
 using System.Linq;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -18,6 +19,7 @@ namespace PavamanDroneConfigurator.Core.ViewModels
     {
         private readonly ISerialPortService _serialPortService;
         private readonly ITcpConnectionService _tcpConnectionService;
+        private readonly IMavlinkService _mavlinkService;
         private readonly ILogger<ConnectionViewModel> _logger;
         private IConnectionService? _activeConnection;
 
@@ -26,19 +28,23 @@ namespace PavamanDroneConfigurator.Core.ViewModels
         /// </summary>
         /// <param name="serialPortService">The serial port service.</param>
         /// <param name="tcpConnectionService">The TCP connection service.</param>
+        /// <param name="mavlinkService">The MAVLink service.</param>
         /// <param name="logger">Logger for diagnostics.</param>
         public ConnectionViewModel(
             ISerialPortService serialPortService,
             ITcpConnectionService tcpConnectionService,
+            IMavlinkService mavlinkService,
             ILogger<ConnectionViewModel> logger)
         {
             _serialPortService = serialPortService ?? throw new ArgumentNullException(nameof(serialPortService));
             _tcpConnectionService = tcpConnectionService ?? throw new ArgumentNullException(nameof(tcpConnectionService));
+            _mavlinkService = mavlinkService ?? throw new ArgumentNullException(nameof(mavlinkService));
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
 
             // Subscribe to connection state changes
             _serialPortService.ConnectionStateChanged += OnConnectionStateChanged;
             _tcpConnectionService.ConnectionStateChanged += OnConnectionStateChanged;
+            _mavlinkService.HeartbeatStateChanged += OnHeartbeatStateChanged;
 
             // Initialize connection types
             AvailableConnectionTypes = new List<ConnectionType> { ConnectionType.Serial, ConnectionType.Tcp };
@@ -48,9 +54,17 @@ namespace PavamanDroneConfigurator.Core.ViewModels
             AvailableBaudRates = new List<int> { 9600, 19200, 38400, 57600, 115200 };
             SelectedBaudRate = 57600; // Default for ArduPilot
 
+            // Initialize serial configuration options
+            AvailableDataBits = new List<int> { 6, 7, 8 };
+            SelectedDataBits = 8; // Default
+
+            AvailableParityOptions = new List<Parity> { Parity.None, Parity.Even, Parity.Odd };
+            SelectedParity = Parity.None; // Default
+
+            AvailableStopBits = new List<StopBits> { StopBits.One, StopBits.OnePointFive, StopBits.Two };
+            SelectedStopBits = StopBits.One; // Default
+
             // Initialize TCP settings
-            AvailableTcpModes = new List<TcpMode> { TcpMode.Client, TcpMode.Server };
-            SelectedTcpMode = TcpMode.Client;
             TcpHost = "127.0.0.1"; // Default for SITL
             TcpPort = 5760; // Default MAVLink port
 
@@ -96,16 +110,40 @@ namespace PavamanDroneConfigurator.Core.ViewModels
         private int _selectedBaudRate;
 
         /// <summary>
-        /// Gets the list of available TCP modes.
+        /// Gets the list of available data bits options.
         /// </summary>
         [ObservableProperty]
-        private List<TcpMode> _availableTcpModes;
+        private List<int> _availableDataBits;
 
         /// <summary>
-        /// Gets or sets the currently selected TCP mode.
+        /// Gets or sets the currently selected data bits.
         /// </summary>
         [ObservableProperty]
-        private TcpMode _selectedTcpMode;
+        private int _selectedDataBits;
+
+        /// <summary>
+        /// Gets the list of available parity options.
+        /// </summary>
+        [ObservableProperty]
+        private List<Parity> _availableParityOptions;
+
+        /// <summary>
+        /// Gets or sets the currently selected parity.
+        /// </summary>
+        [ObservableProperty]
+        private Parity _selectedParity;
+
+        /// <summary>
+        /// Gets the list of available stop bits options.
+        /// </summary>
+        [ObservableProperty]
+        private List<StopBits> _availableStopBits;
+
+        /// <summary>
+        /// Gets or sets the currently selected stop bits.
+        /// </summary>
+        [ObservableProperty]
+        private StopBits _selectedStopBits;
 
         /// <summary>
         /// Gets or sets the TCP host address.
@@ -196,9 +234,16 @@ namespace PavamanDroneConfigurator.Core.ViewModels
                     }
 
                     StatusMessage = $"Connecting to {SelectedPort}...";
-                    await _serialPortService.ConnectAsync(SelectedPort, SelectedBaudRate);
+                    await _serialPortService.ConnectAsync(SelectedPort, SelectedBaudRate, SelectedDataBits, SelectedParity, SelectedStopBits);
                     _activeConnection = _serialPortService;
-                    StatusMessage = $"Connected to {SelectedPort} at {SelectedBaudRate} baud";
+                    
+                    // Initialize MAVLink with the serial port
+                    if (_serialPortService.Port != null)
+                    {
+                        _mavlinkService.Initialize(_serialPortService.Port);
+                    }
+                    
+                    StatusMessage = $"Connected to {SelectedPort} at {SelectedBaudRate} baud. Waiting for heartbeat...";
                     _logger.LogInformation("Connected to {Port} at {BaudRate}", SelectedPort, SelectedBaudRate);
                 }
                 else // TCP
@@ -215,11 +260,18 @@ namespace PavamanDroneConfigurator.Core.ViewModels
                         return;
                     }
 
-                    StatusMessage = $"Connecting to {TcpHost}:{TcpPort} ({SelectedTcpMode})...";
-                    await _tcpConnectionService.ConnectAsync(TcpHost, TcpPort, SelectedTcpMode);
+                    StatusMessage = $"Connecting to {TcpHost}:{TcpPort}...";
+                    await _tcpConnectionService.ConnectAsync(TcpHost, TcpPort);
                     _activeConnection = _tcpConnectionService;
-                    StatusMessage = $"Connected to {TcpHost}:{TcpPort} ({SelectedTcpMode} mode)";
-                    _logger.LogInformation("Connected to {Host}:{Port} in {Mode} mode", TcpHost, TcpPort, SelectedTcpMode);
+                    
+                    // Initialize MAVLink with the TCP port
+                    if (_tcpConnectionService.TcpPort != null)
+                    {
+                        _mavlinkService.Initialize(_tcpConnectionService.TcpPort);
+                    }
+                    
+                    StatusMessage = $"Connected to {TcpHost}:{TcpPort}. Waiting for heartbeat...";
+                    _logger.LogInformation("Connected to {Host}:{Port}", TcpHost, TcpPort);
                 }
             }
             catch (Exception ex)
@@ -263,6 +315,9 @@ namespace PavamanDroneConfigurator.Core.ViewModels
 
             try
             {
+                // Stop MAVLink service first
+                _mavlinkService.Stop();
+                
                 if (_activeConnection != null)
                 {
                     await _activeConnection.DisconnectAsync();
@@ -288,7 +343,7 @@ namespace PavamanDroneConfigurator.Core.ViewModels
         }
 
         /// <summary>
-        /// Handles connection state changes from the serial port service.
+        /// Handles connection state changes from the connection services.
         /// </summary>
         /// <param name="sender">Event sender.</param>
         /// <param name="isConnected">New connection state.</param>
@@ -297,6 +352,27 @@ namespace PavamanDroneConfigurator.Core.ViewModels
             IsConnected = isConnected;
             ConnectCommand.NotifyCanExecuteChanged();
             DisconnectCommand.NotifyCanExecuteChanged();
+        }
+
+        /// <summary>
+        /// Handles heartbeat state changes from the MAVLink service.
+        /// </summary>
+        /// <param name="sender">Event sender.</param>
+        /// <param name="isHeartbeatReceived">New heartbeat state.</param>
+        private void OnHeartbeatStateChanged(object? sender, bool isHeartbeatReceived)
+        {
+            if (isHeartbeatReceived)
+            {
+                StatusMessage = $"Connected - Heartbeat received from System {_mavlinkService.SystemId} (Type: {_mavlinkService.VehicleType})";
+                _logger.LogInformation("Heartbeat received from System {SystemId}", _mavlinkService.SystemId);
+            }
+            else
+            {
+                if (IsConnected)
+                {
+                    StatusMessage = "Connected but no heartbeat received";
+                }
+            }
         }
     }
 }

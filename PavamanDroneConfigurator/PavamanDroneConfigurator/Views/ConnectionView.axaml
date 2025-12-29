@@ -53,19 +53,35 @@
                               SelectedItem="{Binding SelectedBaudRate}"
                               HorizontalAlignment="Stretch"/>
                 </StackPanel>
+
+                <!-- Data Bits Selection -->
+                <StackPanel Spacing="8">
+                    <TextBlock Text="Data Bits:" FontWeight="SemiBold"/>
+                    <ComboBox ItemsSource="{Binding AvailableDataBits}"
+                              SelectedItem="{Binding SelectedDataBits}"
+                              HorizontalAlignment="Stretch"/>
+                </StackPanel>
+
+                <!-- Parity Selection -->
+                <StackPanel Spacing="8">
+                    <TextBlock Text="Parity:" FontWeight="SemiBold"/>
+                    <ComboBox ItemsSource="{Binding AvailableParityOptions}"
+                              SelectedItem="{Binding SelectedParity}"
+                              HorizontalAlignment="Stretch"/>
+                </StackPanel>
+
+                <!-- Stop Bits Selection -->
+                <StackPanel Spacing="8">
+                    <TextBlock Text="Stop Bits:" FontWeight="SemiBold"/>
+                    <ComboBox ItemsSource="{Binding AvailableStopBits}"
+                              SelectedItem="{Binding SelectedStopBits}"
+                              HorizontalAlignment="Stretch"/>
+                </StackPanel>
             </StackPanel>
 
             <!-- TCP Configuration -->
             <StackPanel Spacing="15" IsVisible="{Binding SelectedConnectionType, Converter={x:Static converters:ConnectionTypeToVisibilityConverter.TcpInstance}}">
                 
-                <!-- TCP Mode Selection -->
-                <StackPanel Spacing="8">
-                    <TextBlock Text="TCP Mode:" FontWeight="SemiBold"/>
-                    <ComboBox ItemsSource="{Binding AvailableTcpModes}"
-                              SelectedItem="{Binding SelectedTcpMode}"
-                              HorizontalAlignment="Stretch"/>
-                </StackPanel>
-
                 <!-- Host Address -->
                 <StackPanel Spacing="8">
                     <TextBlock Text="Host Address:" FontWeight="SemiBold"/>
@@ -164,10 +180,10 @@
                     <!-- TCP Tips -->
                     <StackPanel Spacing="4" IsVisible="{Binding SelectedConnectionType, Converter={x:Static converters:ConnectionTypeToVisibilityConverter.TcpInstance}}">
                         <TextBlock TextWrapping="Wrap" Foreground="#1565C0">
-                            • Use Client mode to connect to SITL simulators (e.g., 127.0.0.1:5760)
+                            • Connect to SITL simulators using Client mode (e.g., 127.0.0.1:5760)
                         </TextBlock>
                         <TextBlock TextWrapping="Wrap" Foreground="#1565C0">
-                            • Use Server mode to wait for incoming connections from telemetry modules
+                            • Connect to remote drones with telemetry modules
                         </TextBlock>
                         <TextBlock TextWrapping="Wrap" Foreground="#1565C0">
                             • Default MAVLink TCP port is 5760
