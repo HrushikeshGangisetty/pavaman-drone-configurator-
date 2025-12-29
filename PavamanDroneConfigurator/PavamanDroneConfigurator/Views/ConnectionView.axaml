@@ -9,11 +9,6 @@
              x:Class="PavamanDroneConfigurator.Views.ConnectionView"
              x:DataType="vm:ConnectionViewModel">
 
-    <Design.DataContext>
-        <!-- This only sets the DataContext for the previewer in an IDE -->
-        <vm:ConnectionViewModel/>
-    </Design.DataContext>
-
     <Border Padding="20" Background="#F5F5F5">
         <StackPanel Spacing="20" MaxWidth="600">
             
