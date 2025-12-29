@@ -1,0 +1,129 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="using:PavamanDroneConfigurator.Core.ViewModels"
+             xmlns:converters="using:PavamanDroneConfigurator.Converters"
+             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+             x:Class="PavamanDroneConfigurator.Views.ConnectionView"
+             x:DataType="vm:ConnectionViewModel">
+
+    <Design.DataContext>
+        <!-- This only sets the DataContext for the previewer in an IDE -->
+        <vm:ConnectionViewModel/>
+    </Design.DataContext>
+
+    <Border Padding="20" Background="#F5F5F5">
+        <StackPanel Spacing="20" MaxWidth="600">
+            
+            <!-- Title -->
+            <TextBlock Text="Connection Settings" 
+                       FontSize="24" 
+                       FontWeight="Bold"
+                       Margin="0,0,0,10"/>
+
+            <!-- COM Port Selection -->
+            <StackPanel Spacing="8">
+                <TextBlock Text="COM Port:" FontWeight="SemiBold"/>
+                <Grid ColumnDefinitions="*,Auto">
+                    <ComboBox Grid.Column="0"
+                              ItemsSource="{Binding AvailablePorts}"
+                              SelectedItem="{Binding SelectedPort}"
+                              PlaceholderText="Select a COM port"
+                              HorizontalAlignment="Stretch"
+                              Margin="0,0,10,0"/>
+                    <Button Grid.Column="1"
+                            Command="{Binding RefreshPortsCommand}"
+                            Content="Refresh"
+                            Width="100"/>
+                </Grid>
+            </StackPanel>
+
+            <!-- Baud Rate Selection -->
+            <StackPanel Spacing="8">
+                <TextBlock Text="Baud Rate:" FontWeight="SemiBold"/>
+                <ComboBox ItemsSource="{Binding AvailableBaudRates}"
+                          SelectedItem="{Binding SelectedBaudRate}"
+                          HorizontalAlignment="Stretch"/>
+            </StackPanel>
+
+            <!-- Connection Buttons -->
+            <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
+                <Button Grid.Column="0"
+                        Command="{Binding ConnectCommand}"
+                        Content="Connect"
+                        HorizontalAlignment="Stretch"
+                        HorizontalContentAlignment="Center"
+                        Background="#4CAF50"
+                        Foreground="White"
+                        Padding="0,10"/>
+                <Button Grid.Column="1"
+                        Command="{Binding DisconnectCommand}"
+                        Content="Disconnect"
+                        HorizontalAlignment="Stretch"
+                        HorizontalContentAlignment="Center"
+                        Background="#F44336"
+                        Foreground="White"
+                        Padding="0,10"/>
+            </Grid>
+
+            <!-- Connection Status -->
+            <Border BorderBrush="#CCCCCC" 
+                    BorderThickness="1" 
+                    CornerRadius="4"
+                    Padding="15"
+                    Background="White">
+                <StackPanel Spacing="10">
+                    <TextBlock Text="Status:" FontWeight="SemiBold"/>
+                    
+                    <!-- Status Indicator -->
+                    <StackPanel Orientation="Horizontal" Spacing="10">
+                        <Ellipse Width="16" Height="16" 
+                                 Fill="{Binding IsConnected, Converter={x:Static converters:BoolToColorConverter.Instance}}"/>
+                        <TextBlock Text="{Binding IsConnected, Converter={x:Static converters:BoolToStatusTextConverter.Instance}}"
+                                   FontWeight="SemiBold"/>
+                    </StackPanel>
+
+                    <!-- Status Message -->
+                    <TextBlock Text="{Binding StatusMessage}" 
+                               TextWrapping="Wrap"
+                               Foreground="#666666"/>
+
+                    <!-- Connecting Indicator -->
+                    <StackPanel Orientation="Horizontal" 
+                                Spacing="10"
+                                IsVisible="{Binding IsConnecting}">
+                        <TextBlock Text="●" FontSize="16" Foreground="#FFA500"/>
+                        <TextBlock Text="Connecting..." 
+                                   FontStyle="Italic"
+                                   Foreground="#FFA500"/>
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+
+            <!-- Information Panel -->
+            <Border BorderBrush="#2196F3" 
+                    BorderThickness="2" 
+                    CornerRadius="4"
+                    Padding="15"
+                    Background="#E3F2FD">
+                <StackPanel Spacing="8">
+                    <TextBlock Text="(i) Connection Tips:" 
+                               FontWeight="SemiBold"
+                               Foreground="#1976D2"/>
+                    <TextBlock TextWrapping="Wrap" Foreground="#1565C0">
+                        • Connect your flight controller via USB before selecting a port
+                    </TextBlock>
+                    <TextBlock TextWrapping="Wrap" Foreground="#1565C0">
+                        • Use 57600 or 115200 baud rate for ArduPilot
+                    </TextBlock>
+                    <TextBlock TextWrapping="Wrap" Foreground="#1565C0">
+                        • Click Refresh if your device doesn't appear
+                    </TextBlock>
+                </StackPanel>
+            </Border>
+
+        </StackPanel>
+    </Border>
+
+</UserControl>
