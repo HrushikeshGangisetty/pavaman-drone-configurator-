@@ -1,0 +1,13 @@
+/home/runner/work/pavaman-drone-configurator-/pavaman-drone-configurator-/PavamanDroneConfigurator/PavamanDroneConfigurator.Core/bin/Debug/net9.0/PavamanDroneConfigurator.Core.deps.json
+/home/runner/work/pavaman-drone-configurator-/pavaman-drone-configurator-/PavamanDroneConfigurator/PavamanDroneConfigurator.Core/bin/Debug/net9.0/PavamanDroneConfigurator.Core.dll
+/home/runner/work/pavaman-drone-configurator-/pavaman-drone-configurator-/PavamanDroneConfigurator/PavamanDroneConfigurator.Core/bin/Debug/net9.0/PavamanDroneConfigurator.Core.pdb
+/home/runner/work/pavaman-drone-configurator-/pavaman-drone-configurator-/PavamanDroneConfigurator/PavamanDroneConfigurator.Core/obj/Debug/net9.0/PavamanDroneConfigurator.Core.csproj.AssemblyReference.cache
+/home/runner/work/pavaman-drone-configurator-/pavaman-drone-configurator-/PavamanDroneConfigurator/PavamanDroneConfigurator.Core/obj/Debug/net9.0/PavamanDroneConfigurator.Core.GeneratedMSBuildEditorConfig.editorconfig
+/home/runner/work/pavaman-drone-configurator-/pavaman-drone-configurator-/PavamanDroneConfigurator/PavamanDroneConfigurator.Core/obj/Debug/net9.0/PavamanDroneConfigurator.Core.AssemblyInfoInputs.cache
+/home/runner/work/pavaman-drone-configurator-/pavaman-drone-configurator-/PavamanDroneConfigurator/PavamanDroneConfigurator.Core/obj/Debug/net9.0/PavamanDroneConfigurator.Core.AssemblyInfo.cs
+/home/runner/work/pavaman-drone-configurator-/pavaman-drone-configurator-/PavamanDroneConfigurator/PavamanDroneConfigurator.Core/obj/Debug/net9.0/PavamanDroneConfigurator.Core.csproj.CoreCompileInputs.cache
+/home/runner/work/pavaman-drone-configurator-/pavaman-drone-configurator-/PavamanDroneConfigurator/PavamanDroneConfigurator.Core/obj/Debug/net9.0/PavamanDroneConfigurator.Core.sourcelink.json
+/home/runner/work/pavaman-drone-configurator-/pavaman-drone-configurator-/PavamanDroneConfigurator/PavamanDroneConfigurator.Core/obj/Debug/net9.0/PavamanDroneConfigurator.Core.dll
+/home/runner/work/pavaman-drone-configurator-/pavaman-drone-configurator-/PavamanDroneConfigurator/PavamanDroneConfigurator.Core/obj/Debug/net9.0/refint/PavamanDroneConfigurator.Core.dll
+/home/runner/work/pavaman-drone-configurator-/pavaman-drone-configurator-/PavamanDroneConfigurator/PavamanDroneConfigurator.Core/obj/Debug/net9.0/PavamanDroneConfigurator.Core.pdb
+/home/runner/work/pavaman-drone-configurator-/pavaman-drone-configurator-/PavamanDroneConfigurator/PavamanDroneConfigurator.Core/obj/Debug/net9.0/ref/PavamanDroneConfigurator.Core.dll
