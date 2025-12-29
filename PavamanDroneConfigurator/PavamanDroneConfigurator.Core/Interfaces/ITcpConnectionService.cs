@@ -1,5 +1,6 @@
 using System;
 using System.Threading.Tasks;
+using Asv.IO;
 using PavamanDroneConfigurator.Core.Enums;
 
 namespace PavamanDroneConfigurator.Core.Interfaces
@@ -21,20 +22,19 @@ namespace PavamanDroneConfigurator.Core.Interfaces
         int Port { get; set; }
 
         /// <summary>
-        /// Gets or sets the TCP connection mode (Client or Server).
+        /// Gets the underlying IPort for MAVLink integration.
         /// </summary>
-        TcpMode Mode { get; set; }
+        IPort? TcpPort { get; }
 
         /// <summary>
-        /// Asynchronously connects to the specified TCP endpoint.
+        /// Asynchronously connects to the specified TCP endpoint in client mode.
         /// </summary>
         /// <param name="host">The IP address or hostname to connect to.</param>
         /// <param name="port">The TCP port number.</param>
-        /// <param name="mode">The connection mode (Client or Server).</param>
         /// <returns>A task that represents the asynchronous operation.</returns>
         /// <exception cref="InvalidOperationException">Thrown when already connected.</exception>
         /// <exception cref="ArgumentException">Thrown when host or port is invalid.</exception>
         /// <exception cref="TimeoutException">Thrown when connection times out.</exception>
-        Task ConnectAsync(string host, int port, TcpMode mode);
+        Task ConnectAsync(string host, int port);
     }
 }

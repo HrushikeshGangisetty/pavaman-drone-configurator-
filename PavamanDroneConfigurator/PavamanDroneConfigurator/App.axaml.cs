@@ -59,6 +59,7 @@ namespace PavamanDroneConfigurator
             // Services
             services.AddSingleton<ISerialPortService, SerialPortService>();
             services.AddSingleton<ITcpConnectionService, TcpConnectionService>();
+            services.AddSingleton<IMavlinkService, Infrastructure.MAVLink.MavlinkService>();
 
             // ViewModels
             services.AddTransient<MainWindowViewModel>();

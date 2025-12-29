@@ -3,18 +3,19 @@ using System.Collections.Generic;
 using System.IO.Ports;
 using System.Linq;
 using System.Threading.Tasks;
+using Asv.IO;
 using Microsoft.Extensions.Logging;
 using PavamanDroneConfigurator.Core.Interfaces;
 
 namespace PavamanDroneConfigurator.Infrastructure.Serial
 {
     /// <summary>
-    /// Implementation of serial port communication service using System.IO.Ports.SerialPort.
+    /// Implementation of serial port communication service using Asv.IO.
     /// </summary>
     public class SerialPortService : ISerialPortService, IDisposable
     {
         private readonly ILogger<SerialPortService> _logger;
-        private SerialPort? _serialPort;
+        private IPort? _port;
         private bool _disposed;
 
         /// <summary>
@@ -24,10 +25,25 @@ namespace PavamanDroneConfigurator.Infrastructure.Serial
         public SerialPortService(ILogger<SerialPortService> logger)
         {
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+            DataBits = 8;
+            Parity = Parity.None;
+            StopBits = StopBits.One;
         }
 
         /// <inheritdoc/>
-        public bool IsConnected => _serialPort?.IsOpen ?? false;
+        public bool IsConnected => _port?.IsEnabled.CurrentValue ?? false;
+
+        /// <inheritdoc/>
+        public int DataBits { get; set; }
+
+        /// <inheritdoc/>
+        public Parity Parity { get; set; }
+
+        /// <inheritdoc/>
+        public StopBits StopBits { get; set; }
+
+        /// <inheritdoc/>
+        public IPort? Port => _port;
 
         /// <inheritdoc/>
         public event EventHandler<bool>? ConnectionStateChanged;
@@ -49,7 +65,7 @@ namespace PavamanDroneConfigurator.Infrastructure.Serial
         }
 
         /// <inheritdoc/>
-        public async Task ConnectAsync(string portName, int baudRate)
+        public async Task ConnectAsync(string portName, int baudRate, int dataBits = 8, Parity parity = Parity.None, StopBits stopBits = StopBits.One)
         {
             if (string.IsNullOrWhiteSpace(portName))
             {
@@ -63,17 +79,47 @@ namespace PavamanDroneConfigurator.Infrastructure.Serial
 
             try
             {
-                _logger.LogInformation("Attempting to connect to {Port} at {BaudRate} baud", portName, baudRate);
+                DataBits = dataBits;
+                Parity = parity;
+                StopBits = stopBits;
 
-                _serialPort = new SerialPort(portName, baudRate)
+                _logger.LogInformation("Attempting to connect to {Port} at {BaudRate} baud, {DataBits} data bits, {Parity} parity, {StopBits} stop bits", 
+                    portName, baudRate, dataBits, parity, stopBits);
+
+                // Build the connection string for Asv.IO
+                // Format: serial:port:baudrate:databits:parity:stopbits
+                // Parity: N (None), E (Even), O (Odd), M (Mark), S (Space)
+                char parityChar = parity switch
                 {
-                    ReadTimeout = 1000,
-                    WriteTimeout = 1000,
-                    DtrEnable = true,
-                    RtsEnable = true
+                    Parity.None => 'N',
+                    Parity.Even => 'E',
+                    Parity.Odd => 'O',
+                    Parity.Mark => 'M',
+                    Parity.Space => 'S',
+                    _ => 'N'
                 };
 
-                await Task.Run(() => _serialPort.Open());
+                // StopBits: 1, 1.5, 2
+                string stopBitsStr = stopBits switch
+                {
+                    StopBits.One => "1",
+                    StopBits.OnePointFive => "1.5",
+                    StopBits.Two => "2",
+                    _ => "1"
+                };
+
+                string connectionString = $"serial:{portName}:{baudRate}:{dataBits}:{parityChar}:{stopBitsStr}";
+                
+                _logger.LogDebug("Connection string: {ConnectionString}", connectionString);
+
+                // Create the port using Asv.IO PortFactory
+                _port = PortFactory.Create(connectionString);
+
+                // Enable the port (starts the connection)
+                if (_port != null)
+                {
+                    await Task.Run(() => _port.Enable());
+                }
 
                 _logger.LogInformation("Successfully connected to {Port}", portName);
                 OnConnectionStateChanged(true);
@@ -81,19 +127,19 @@ namespace PavamanDroneConfigurator.Infrastructure.Serial
             catch (UnauthorizedAccessException ex)
             {
                 _logger.LogError(ex, "Access denied to port {Port}", portName);
-                CleanupSerialPort();
+                CleanupPort();
                 throw new InvalidOperationException($"Access denied to port {portName}. Port may be in use.", ex);
             }
             catch (ArgumentException ex)
             {
                 _logger.LogError(ex, "Invalid port name {Port}", portName);
-                CleanupSerialPort();
+                CleanupPort();
                 throw new ArgumentException($"Invalid port name: {portName}", nameof(portName), ex);
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Failed to connect to {Port}", portName);
-                CleanupSerialPort();
+                CleanupPort();
                 throw new InvalidOperationException($"Failed to connect to {portName}: {ex.Message}", ex);
             }
         }
@@ -101,7 +147,7 @@ namespace PavamanDroneConfigurator.Infrastructure.Serial
         /// <inheritdoc/>
         public Task ConnectAsync()
         {
-            throw new NotSupportedException("Serial port service requires port name and baud rate. Use ConnectAsync(string portName, int baudRate) instead.");
+            throw new NotSupportedException("Serial port service requires port name and baud rate. Use ConnectAsync(string portName, int baudRate, ...) instead.");
         }
 
         /// <inheritdoc/>
@@ -119,20 +165,20 @@ namespace PavamanDroneConfigurator.Infrastructure.Serial
                 
                 await Task.Run(() =>
                 {
-                    if (_serialPort?.IsOpen == true)
+                    if (_port?.IsEnabled.CurrentValue == true)
                     {
-                        _serialPort.Close();
+                        _port.Disable();
                     }
                 });
 
-                CleanupSerialPort();
+                CleanupPort();
                 _logger.LogInformation("Successfully disconnected from serial port");
                 OnConnectionStateChanged(false);
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error disconnecting from serial port");
-                CleanupSerialPort();
+                CleanupPort();
                 throw;
             }
         }
@@ -147,26 +193,26 @@ namespace PavamanDroneConfigurator.Infrastructure.Serial
         }
 
         /// <summary>
-        /// Cleans up the serial port instance.
+        /// Cleans up the port instance.
         /// </summary>
-        private void CleanupSerialPort()
+        private void CleanupPort()
         {
-            if (_serialPort != null)
+            if (_port != null)
             {
                 try
                 {
-                    if (_serialPort.IsOpen)
+                    if (_port.IsEnabled.CurrentValue)
                     {
-                        _serialPort.Close();
+                        _port.Disable();
                     }
+                    _port.Dispose();
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogWarning(ex, "Error closing serial port during cleanup");
+                    _logger.LogWarning(ex, "Error disposing port during cleanup");
                 }
 
-                _serialPort.Dispose();
-                _serialPort = null;
+                _port = null;
             }
         }
 
@@ -177,7 +223,7 @@ namespace PavamanDroneConfigurator.Infrastructure.Serial
         {
             if (!_disposed)
             {
-                CleanupSerialPort();
+                CleanupPort();
                 _disposed = true;
             }
             GC.SuppressFinalize(this);

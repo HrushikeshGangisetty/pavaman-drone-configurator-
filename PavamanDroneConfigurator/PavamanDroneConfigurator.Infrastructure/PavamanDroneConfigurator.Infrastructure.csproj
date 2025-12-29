@@ -7,6 +7,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="Asv.IO" Version="3.3.0" />
     <PackageReference Include="Asv.Mavlink" Version="4.0.18" />
     <PackageReference Include="Duende.IdentityModel.OidcClient" Version="7.0.0" />
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.1" />

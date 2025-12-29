@@ -35,13 +35,13 @@ namespace PavamanDroneConfigurator.Infrastructure.Tcp
         public int Port { get; set; }
 
         /// <inheritdoc/>
-        public TcpMode Mode { get; set; }
+        public IPort? TcpPort => _port;
 
         /// <inheritdoc/>
         public event EventHandler<bool>? ConnectionStateChanged;
 
         /// <inheritdoc/>
-        public async Task ConnectAsync(string host, int port, TcpMode mode)
+        public async Task ConnectAsync(string host, int port)
         {
             if (string.IsNullOrWhiteSpace(host))
             {
@@ -62,14 +62,12 @@ namespace PavamanDroneConfigurator.Infrastructure.Tcp
             {
                 Host = host;
                 Port = port;
-                Mode = mode;
 
-                _logger.LogInformation("Attempting to connect to {Host}:{Port} in {Mode} mode", host, port, mode);
+                _logger.LogInformation("Attempting to connect to {Host}:{Port} in Client mode", host, port);
 
-                // Build the connection string for Asv.IO
-                // Format: tcp:host:port?clnt (for client) or tcp:host:port?srv (for server)
-                string modeString = mode == TcpMode.Client ? "clnt" : "srv";
-                string connectionString = $"tcp:{host}:{port}?{modeString}";
+                // Build the connection string for Asv.IO (always client mode)
+                // Format: tcp:host:port?clnt
+                string connectionString = $"tcp:{host}:{port}?clnt";
 
                 _logger.LogDebug("Connection string: {ConnectionString}", connectionString);
 
@@ -112,7 +110,7 @@ namespace PavamanDroneConfigurator.Infrastructure.Tcp
                 throw new InvalidOperationException("Port is not set");
             }
 
-            await ConnectAsync(Host, Port, Mode);
+            await ConnectAsync(Host, Port);
         }
 
         /// <inheritdoc/>
