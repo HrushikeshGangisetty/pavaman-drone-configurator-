@@ -8,7 +8,7 @@ using PavamanDroneConfigurator.Core.Interfaces;
 namespace PavamanDroneConfigurator.Infrastructure.Tcp
 {
     /// <summary>
-    /// Implementation of TCP connection service using Asv.IO.
+    /// Implementation of TCP connection service using Asv.IO with proper TCP client configuration.
     /// </summary>
     public class TcpConnectionService : ITcpConnectionService, IDisposable
     {
@@ -63,21 +63,31 @@ namespace PavamanDroneConfigurator.Infrastructure.Tcp
                 Host = host;
                 Port = port;
 
-                _logger.LogInformation("Attempting to connect to {Host}:{Port} in Client mode", host, port);
+                _logger.LogInformation("Attempting to connect to {Host}:{Port} in TCP Client mode", host, port);
 
-                // Build the connection string for Asv.IO (always client mode)
-                // Format: tcp:host:port?clnt
-                string connectionString = $"tcp:{host}:{port}?clnt";
+                // Build the connection string for TCP client
+                // Format: tcp://host:port
+                string connectionString = $"tcp://{host}:{port}";
 
                 _logger.LogDebug("Connection string: {ConnectionString}", connectionString);
 
-                // Create the port using Asv.IO PortFactory
+                // Create the TCP port using PortFactory
                 _port = PortFactory.Create(connectionString);
 
-                // Enable the port (starts the connection)
-                if (_port != null)
+                if (_port == null)
                 {
-                    await Task.Run(() => _port.Enable());
+                    throw new InvalidOperationException("Failed to create TCP port");
+                }
+
+                // Enable the port (starts the connection)
+                await Task.Run(() => _port.Enable());
+
+                // Wait a moment to ensure connection is established
+                await Task.Delay(100);
+
+                if (!_port.IsEnabled.CurrentValue)
+                {
+                    throw new InvalidOperationException("Failed to enable TCP port");
                 }
 
                 _logger.LogInformation("Successfully connected to {Host}:{Port}", host, port);
@@ -89,9 +99,21 @@ namespace PavamanDroneConfigurator.Infrastructure.Tcp
                 CleanupConnection();
                 throw new ArgumentException($"Invalid connection parameters: {ex.Message}", ex);
             }
+            catch (System.Net.Sockets.SocketException ex)
+            {
+                _logger.LogError(ex, "Socket error connecting to {Host}:{Port}", host, port);
+                CleanupConnection();
+                throw new InvalidOperationException($"Network error: {ex.Message}. Is SITL running on {host}:{port}?", ex);
+            }
+            catch (TimeoutException ex)
+            {
+                _logger.LogError(ex, "Timeout connecting to {Host}:{Port}", host, port);
+                CleanupConnection();
+                throw new TimeoutException($"Connection timeout: {ex.Message}", ex);
+            }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Failed to connect to {Host}:{Port}", host, port);
+                _logger.LogError(ex, "Failed to connect to {Host}:{Port} - {ExceptionType}", host, port, ex.GetType().Name);
                 CleanupConnection();
                 throw new InvalidOperationException($"Failed to connect to {host}:{port}: {ex.Message}", ex);
             }

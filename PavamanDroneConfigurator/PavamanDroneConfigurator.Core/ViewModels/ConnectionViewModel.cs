@@ -85,6 +85,11 @@ namespace PavamanDroneConfigurator.Core.ViewModels
         [ObservableProperty]
         private ConnectionType _selectedConnectionType;
 
+        partial void OnSelectedConnectionTypeChanged(ConnectionType value)
+        {
+            ConnectCommand.NotifyCanExecuteChanged();
+        }
+
         /// <summary>
         /// Gets the collection of available COM ports.
         /// </summary>
@@ -96,6 +101,11 @@ namespace PavamanDroneConfigurator.Core.ViewModels
         /// </summary>
         [ObservableProperty]
         private string? _selectedPort;
+
+        partial void OnSelectedPortChanged(string? value)
+        {
+            ConnectCommand.NotifyCanExecuteChanged();
+        }
 
         /// <summary>
         /// Gets the list of available baud rates.
@@ -151,11 +161,21 @@ namespace PavamanDroneConfigurator.Core.ViewModels
         [ObservableProperty]
         private string _tcpHost = string.Empty;
 
+        partial void OnTcpHostChanged(string value)
+        {
+            ConnectCommand.NotifyCanExecuteChanged();
+        }
+
         /// <summary>
         /// Gets or sets the TCP port number.
         /// </summary>
         [ObservableProperty]
         private int _tcpPort;
+
+        partial void OnTcpPortChanged(int value)
+        {
+            ConnectCommand.NotifyCanExecuteChanged();
+        }
 
         /// <summary>
         /// Gets or sets a value indicating whether a connection is active.
@@ -163,11 +183,23 @@ namespace PavamanDroneConfigurator.Core.ViewModels
         [ObservableProperty]
         private bool _isConnected;
 
+        partial void OnIsConnectedChanged(bool value)
+        {
+            ConnectCommand.NotifyCanExecuteChanged();
+            DisconnectCommand.NotifyCanExecuteChanged();
+        }
+
         /// <summary>
         /// Gets or sets a value indicating whether a connection attempt is in progress.
         /// </summary>
         [ObservableProperty]
         private bool _isConnecting;
+
+        partial void OnIsConnectingChanged(bool value)
+        {
+            ConnectCommand.NotifyCanExecuteChanged();
+            DisconnectCommand.NotifyCanExecuteChanged();
+        }
 
         /// <summary>
         /// Gets or sets the status message to display to the user.
@@ -234,13 +266,20 @@ namespace PavamanDroneConfigurator.Core.ViewModels
                     }
 
                     StatusMessage = $"Connecting to {SelectedPort}...";
+                    _logger.LogInformation("Starting serial connection to {Port}", SelectedPort);
+                    
                     await _serialPortService.ConnectAsync(SelectedPort, SelectedBaudRate, SelectedDataBits, SelectedParity, SelectedStopBits);
                     _activeConnection = _serialPortService;
                     
                     // Initialize MAVLink with the serial port
                     if (_serialPortService.Port != null)
                     {
+                        _logger.LogInformation("Initializing MAVLink on serial port");
                         _mavlinkService.Initialize(_serialPortService.Port);
+                    }
+                    else
+                    {
+                        _logger.LogWarning("Serial port is null after connection");
                     }
                     
                     StatusMessage = $"Connected to {SelectedPort} at {SelectedBaudRate} baud. Waiting for heartbeat...";
@@ -261,22 +300,56 @@ namespace PavamanDroneConfigurator.Core.ViewModels
                     }
 
                     StatusMessage = $"Connecting to {TcpHost}:{TcpPort}...";
+                    _logger.LogInformation("Starting TCP connection to {Host}:{Port}", TcpHost, TcpPort);
+                    
                     await _tcpConnectionService.ConnectAsync(TcpHost, TcpPort);
                     _activeConnection = _tcpConnectionService;
+                    
+                    _logger.LogInformation("TCP connection established. IsConnected: {IsConnected}", _tcpConnectionService.IsConnected);
                     
                     // Initialize MAVLink with the TCP port
                     if (_tcpConnectionService.TcpPort != null)
                     {
+                        _logger.LogInformation("Initializing MAVLink on TCP port");
                         _mavlinkService.Initialize(_tcpConnectionService.TcpPort);
+                        StatusMessage = $"Connected to {TcpHost}:{TcpPort}. Waiting for heartbeat...";
+                    }
+                    else
+                    {
+                        _logger.LogWarning("TCP port is null after connection");
+                        StatusMessage = $"TCP connection established to {TcpHost}:{TcpPort} but MAVLink port unavailable";
                     }
                     
-                    StatusMessage = $"Connected to {TcpHost}:{TcpPort}. Waiting for heartbeat...";
                     _logger.LogInformation("Connected to {Host}:{Port}", TcpHost, TcpPort);
                 }
             }
+            catch (System.Net.Sockets.SocketException ex)
+            {
+                _logger.LogError(ex, "Connection failed - SocketException: {Message}", ex.Message);
+                StatusMessage = $"Network error: {ex.Message}. Is SITL running on {TcpHost}:{TcpPort}?";
+                _activeConnection = null;
+            }
+            catch (TimeoutException ex)
+            {
+                _logger.LogError(ex, "Connection failed - TimeoutException: {Message}", ex.Message);
+                StatusMessage = $"Connection timeout: No response from {TcpHost}:{TcpPort}";
+                _activeConnection = null;
+            }
+            catch (InvalidOperationException ex)
+            {
+                _logger.LogError(ex, "Connection failed - InvalidOperationException: {Message}", ex.Message);
+                StatusMessage = $"Connection failed: {ex.Message}";
+                _activeConnection = null;
+            }
+            catch (ArgumentException ex)
+            {
+                _logger.LogError(ex, "Connection failed - ArgumentException: {Message}", ex.Message);
+                StatusMessage = $"Invalid parameters: {ex.Message}";
+                _activeConnection = null;
+            }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Connection failed");
+                _logger.LogError(ex, "Connection failed - Unexpected exception: {ExceptionType} - {Message}", ex.GetType().Name, ex.Message);
                 StatusMessage = $"Connection failed: {ex.Message}";
                 _activeConnection = null;
             }
@@ -350,8 +423,7 @@ namespace PavamanDroneConfigurator.Core.ViewModels
         private void OnConnectionStateChanged(object? sender, bool isConnected)
         {
             IsConnected = isConnected;
-            ConnectCommand.NotifyCanExecuteChanged();
-            DisconnectCommand.NotifyCanExecuteChanged();
+            // Commands are already notified via OnIsConnectedChanged
         }
 
         /// <summary>
