@@ -10,6 +10,7 @@ using Microsoft.Extensions.Logging;
 using PavamanDroneConfigurator.Core.Interfaces;
 using PavamanDroneConfigurator.Core.ViewModels;
 using PavamanDroneConfigurator.Infrastructure.Serial;
+using PavamanDroneConfigurator.Infrastructure.Tcp;
 using PavamanDroneConfigurator.ViewModels;
 using PavamanDroneConfigurator.Views;
 
@@ -57,6 +58,7 @@ namespace PavamanDroneConfigurator
 
             // Services
             services.AddSingleton<ISerialPortService, SerialPortService>();
+            services.AddSingleton<ITcpConnectionService, TcpConnectionService>();
 
             // ViewModels
             services.AddTransient<MainWindowViewModel>();

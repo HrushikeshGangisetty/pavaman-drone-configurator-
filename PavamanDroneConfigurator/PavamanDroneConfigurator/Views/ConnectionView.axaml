@@ -3,6 +3,7 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:vm="using:PavamanDroneConfigurator.Core.ViewModels"
+             xmlns:enums="using:PavamanDroneConfigurator.Core.Enums"
              xmlns:converters="using:PavamanDroneConfigurator.Converters"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
              x:Class="PavamanDroneConfigurator.Views.ConnectionView"
@@ -22,29 +23,69 @@
                        FontWeight="Bold"
                        Margin="0,0,0,10"/>
 
-            <!-- COM Port Selection -->
+            <!-- Connection Type Selection -->
             <StackPanel Spacing="8">
-                <TextBlock Text="COM Port:" FontWeight="SemiBold"/>
-                <Grid ColumnDefinitions="*,Auto">
-                    <ComboBox Grid.Column="0"
-                              ItemsSource="{Binding AvailablePorts}"
-                              SelectedItem="{Binding SelectedPort}"
-                              PlaceholderText="Select a COM port"
-                              HorizontalAlignment="Stretch"
-                              Margin="0,0,10,0"/>
-                    <Button Grid.Column="1"
-                            Command="{Binding RefreshPortsCommand}"
-                            Content="Refresh"
-                            Width="100"/>
-                </Grid>
+                <TextBlock Text="Connection Type:" FontWeight="SemiBold"/>
+                <ComboBox ItemsSource="{Binding AvailableConnectionTypes}"
+                          SelectedItem="{Binding SelectedConnectionType}"
+                          HorizontalAlignment="Stretch"/>
             </StackPanel>
 
-            <!-- Baud Rate Selection -->
-            <StackPanel Spacing="8">
-                <TextBlock Text="Baud Rate:" FontWeight="SemiBold"/>
-                <ComboBox ItemsSource="{Binding AvailableBaudRates}"
-                          SelectedItem="{Binding SelectedBaudRate}"
-                          HorizontalAlignment="Stretch"/>
+            <!-- Serial Port Configuration -->
+            <StackPanel Spacing="15" IsVisible="{Binding SelectedConnectionType, Converter={x:Static converters:ConnectionTypeToVisibilityConverter.SerialInstance}}">
+                
+                <!-- COM Port Selection -->
+                <StackPanel Spacing="8">
+                    <TextBlock Text="COM Port:" FontWeight="SemiBold"/>
+                    <Grid ColumnDefinitions="*,Auto">
+                        <ComboBox Grid.Column="0"
+                                  ItemsSource="{Binding AvailablePorts}"
+                                  SelectedItem="{Binding SelectedPort}"
+                                  PlaceholderText="Select a COM port"
+                                  HorizontalAlignment="Stretch"
+                                  Margin="0,0,10,0"/>
+                        <Button Grid.Column="1"
+                                Command="{Binding RefreshPortsCommand}"
+                                Content="Refresh"
+                                Width="100"/>
+                    </Grid>
+                </StackPanel>
+
+                <!-- Baud Rate Selection -->
+                <StackPanel Spacing="8">
+                    <TextBlock Text="Baud Rate:" FontWeight="SemiBold"/>
+                    <ComboBox ItemsSource="{Binding AvailableBaudRates}"
+                              SelectedItem="{Binding SelectedBaudRate}"
+                              HorizontalAlignment="Stretch"/>
+                </StackPanel>
+            </StackPanel>
+
+            <!-- TCP Configuration -->
+            <StackPanel Spacing="15" IsVisible="{Binding SelectedConnectionType, Converter={x:Static converters:ConnectionTypeToVisibilityConverter.TcpInstance}}">
+                
+                <!-- TCP Mode Selection -->
+                <StackPanel Spacing="8">
+                    <TextBlock Text="TCP Mode:" FontWeight="SemiBold"/>
+                    <ComboBox ItemsSource="{Binding AvailableTcpModes}"
+                              SelectedItem="{Binding SelectedTcpMode}"
+                              HorizontalAlignment="Stretch"/>
+                </StackPanel>
+
+                <!-- Host Address -->
+                <StackPanel Spacing="8">
+                    <TextBlock Text="Host Address:" FontWeight="SemiBold"/>
+                    <TextBox Text="{Binding TcpHost}"
+                             Watermark="e.g., 127.0.0.1 or localhost"
+                             HorizontalAlignment="Stretch"/>
+                </StackPanel>
+
+                <!-- Port Number -->
+                <StackPanel Spacing="8">
+                    <TextBlock Text="Port:" FontWeight="SemiBold"/>
+                    <TextBox Text="{Binding TcpPort}"
+                             Watermark="e.g., 5760"
+                             HorizontalAlignment="Stretch"/>
+                </StackPanel>
             </StackPanel>
 
             <!-- Connection Buttons -->
@@ -111,15 +152,32 @@
                     <TextBlock Text="(i) Connection Tips:" 
                                FontWeight="SemiBold"
                                Foreground="#1976D2"/>
-                    <TextBlock TextWrapping="Wrap" Foreground="#1565C0">
-                        • Connect your flight controller via USB before selecting a port
-                    </TextBlock>
-                    <TextBlock TextWrapping="Wrap" Foreground="#1565C0">
-                        • Use 57600 or 115200 baud rate for ArduPilot
-                    </TextBlock>
-                    <TextBlock TextWrapping="Wrap" Foreground="#1565C0">
-                        • Click Refresh if your device doesn't appear
-                    </TextBlock>
+                    
+                    <!-- Serial Tips -->
+                    <StackPanel Spacing="4" IsVisible="{Binding SelectedConnectionType, Converter={x:Static converters:ConnectionTypeToVisibilityConverter.SerialInstance}}">
+                        <TextBlock TextWrapping="Wrap" Foreground="#1565C0">
+                            • Connect your flight controller via USB before selecting a port
+                        </TextBlock>
+                        <TextBlock TextWrapping="Wrap" Foreground="#1565C0">
+                            • Use 57600 or 115200 baud rate for ArduPilot
+                        </TextBlock>
+                        <TextBlock TextWrapping="Wrap" Foreground="#1565C0">
+                            • Click Refresh if your device doesn't appear
+                        </TextBlock>
+                    </StackPanel>
+                    
+                    <!-- TCP Tips -->
+                    <StackPanel Spacing="4" IsVisible="{Binding SelectedConnectionType, Converter={x:Static converters:ConnectionTypeToVisibilityConverter.TcpInstance}}">
+                        <TextBlock TextWrapping="Wrap" Foreground="#1565C0">
+                            • Use Client mode to connect to SITL simulators (e.g., 127.0.0.1:5760)
+                        </TextBlock>
+                        <TextBlock TextWrapping="Wrap" Foreground="#1565C0">
+                            • Use Server mode to wait for incoming connections from telemetry modules
+                        </TextBlock>
+                        <TextBlock TextWrapping="Wrap" Foreground="#1565C0">
+                            • Default MAVLink TCP port is 5760
+                        </TextBlock>
+                    </StackPanel>
                 </StackPanel>
             </Border>
 
