@@ -93,7 +93,7 @@
                     <StackPanel Orientation="Horizontal" 
                                 Spacing="10"
                                 IsVisible="{Binding IsConnecting}">
-                        <TextBlock Text="⏳" FontSize="16"/>
+                        <TextBlock Text="●" FontSize="16" Foreground="#FFA500"/>
                         <TextBlock Text="Connecting..." 
                                    FontStyle="Italic"
                                    Foreground="#FFA500"/>
@@ -108,7 +108,7 @@
                     Padding="15"
                     Background="#E3F2FD">
                 <StackPanel Spacing="8">
-                    <TextBlock Text="ℹ️ Connection Tips:" 
+                    <TextBlock Text="(i) Connection Tips:" 
                                FontWeight="SemiBold"
                                Foreground="#1976D2"/>
                     <TextBlock TextWrapping="Wrap" Foreground="#1565C0">
