@@ -1,22 +1,33 @@
 using System;
 using Asv.IO;
+using Asv.Mavlink.Minimal;
 using Microsoft.Extensions.Logging;
 using PavamanDroneConfigurator.Core.Interfaces;
+using R3;
 
 namespace PavamanDroneConfigurator.Infrastructure.MAVLink
 {
     /// <summary>
     /// Implementation of MAVLink communication service using Asv.Mavlink.
+    /// Parses MAVLink V2 protocol packets from the data stream.
     /// </summary>
     public class MavlinkService : IMavlinkService
     {
         private readonly ILogger<MavlinkService> _logger;
         private IPort? _port;
+        private IDisposable? _portSubscription;
         private bool _disposed;
         private bool _isHeartbeatReceived;
         private byte _systemId;
         private byte _componentId;
         private string _vehicleType = "Unknown";
+
+        // MAVLink V2 parsing state
+        private byte[] _buffer = new byte[280]; // Max MAVLink V2 packet size
+        private int _bufferIndex = 0;
+        private enum ParserState { WaitingForStart, GotStart, InPacket }
+        private ParserState _state = ParserState.WaitingForStart;
+        private int _expectedLength = 0;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="MavlinkService"/> class.
@@ -83,29 +94,130 @@ namespace PavamanDroneConfigurator.Infrastructure.MAVLink
                 // Store the port reference
                 _port = port;
 
-                // For now, simulate heartbeat detection
-                // In a full implementation, this would use Asv.Mavlink to parse MAVLink messages
-                // and detect heartbeat packets from the port data stream
-                
-                // Simulate receiving a heartbeat after initialization
-                System.Threading.Tasks.Task.Delay(1000).ContinueWith(_ =>
+                // Subscribe to port data and parse MAVLink packets  
+                _portSubscription = _port.OnReceive.Subscribe(dataArray =>
                 {
-                    if (_port != null && _port.IsEnabled.CurrentValue)
+                    try
                     {
-                        SystemId = 1;
-                        ComponentId = 1;
-                        VehicleType = "ArduCopter";
-                        IsHeartbeatReceived = true;
-                        _logger.LogInformation("MAVLink heartbeat detected (simulated)");
+                        // Process each byte in the received data
+                        foreach (var data in dataArray)
+                        {
+                            ProcessByte(data);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Error processing MAVLink data");
                     }
                 });
 
-                _logger.LogInformation("MAVLink service initialized successfully");
+                _logger.LogInformation("MAVLink service initialized successfully, listening for heartbeat");
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Failed to initialize MAVLink service");
                 throw;
+            }
+        }
+
+        /// <summary>
+        /// Processes a single byte from the data stream.
+        /// </summary>
+        /// <param name="data">The byte to process.</param>
+        private void ProcessByte(byte data)
+        {
+            try
+            {
+                switch (_state)
+                {
+                    case ParserState.WaitingForStart:
+                        if (data == 0xFD) // MAVLink V2 start marker
+                        {
+                            _buffer[0] = data;
+                            _bufferIndex = 1;
+                            _state = ParserState.GotStart;
+                        }
+                        break;
+
+                    case ParserState.GotStart:
+                        _buffer[_bufferIndex++] = data;
+                        if (_bufferIndex == 10) // Header complete (STX + 9 header bytes)
+                        {
+                            // Calculate expected packet length
+                            byte payloadLength = _buffer[1];
+                            _expectedLength = 12 + payloadLength + 2; // Header(10) + Payload + CRC(2)
+                            
+                            // Add signature length if present
+                            byte incompatFlags = _buffer[2];
+                            if ((incompatFlags & 0x01) != 0) // Signature flag
+                            {
+                                _expectedLength += 13;
+                            }
+
+                            _state = ParserState.InPacket;
+                        }
+                        break;
+
+                    case ParserState.InPacket:
+                        _buffer[_bufferIndex++] = data;
+                        if (_bufferIndex >= _expectedLength)
+                        {
+                            // Full packet received, process it
+                            ProcessPacket();
+                            
+                            // Reset parser
+                            _state = ParserState.WaitingForStart;
+                            _bufferIndex = 0;
+                        }
+                        break;
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error processing MAVLink byte");
+                _state = ParserState.WaitingForStart;
+                _bufferIndex = 0;
+            }
+        }
+
+        /// <summary>
+        /// Processes a complete MAVLink packet.
+        /// </summary>
+        private void ProcessPacket()
+        {
+            try
+            {
+                // Extract packet fields
+                byte payloadLength = _buffer[1];
+                byte systemId = _buffer[5];
+                byte componentId = _buffer[6];
+                uint messageId = (uint)(_buffer[7] | (_buffer[8] << 8) | (_buffer[9] << 16));
+
+                // Check if this is a HEARTBEAT message (ID = 0)
+                if (messageId == 0 && payloadLength >= 9)
+                {
+                    // Parse heartbeat payload
+                    // Payload starts at index 10
+                    byte mavType = _buffer[14]; // Type is at offset 4 in payload
+
+                    // Update vehicle information
+                    SystemId = systemId;
+                    ComponentId = componentId;
+                    VehicleType = GetVehicleTypeName((MavType)mavType);
+
+                    // Update heartbeat state if this is the first heartbeat
+                    if (!IsHeartbeatReceived)
+                    {
+                        IsHeartbeatReceived = true;
+                        _logger.LogInformation(
+                            "MAVLink heartbeat received from System {SystemId}, Component {ComponentId}, Type: {VehicleType}",
+                            SystemId, ComponentId, VehicleType);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error processing MAVLink packet");
             }
         }
 
@@ -116,7 +228,15 @@ namespace PavamanDroneConfigurator.Infrastructure.MAVLink
             {
                 _logger.LogInformation("Stopping MAVLink service");
 
-                // Reset state
+                // Unsubscribe from port data
+                _portSubscription?.Dispose();
+                _portSubscription = null;
+
+                // Reset parser state
+                _state = ParserState.WaitingForStart;
+                _bufferIndex = 0;
+
+                // Reset connection state
                 IsHeartbeatReceived = false;
                 SystemId = 0;
                 ComponentId = 0;
@@ -129,6 +249,34 @@ namespace PavamanDroneConfigurator.Infrastructure.MAVLink
             {
                 _logger.LogError(ex, "Error stopping MAVLink service");
             }
+        }
+
+        /// <summary>
+        /// Converts MAVLink vehicle type to human-readable string.
+        /// </summary>
+        /// <param name="vehicleType">MAVLink vehicle type.</param>
+        /// <returns>Human-readable vehicle type name.</returns>
+        private static string GetVehicleTypeName(MavType vehicleType)
+        {
+            return vehicleType switch
+            {
+                MavType.MavTypeQuadrotor => "QuadCopter",
+                MavType.MavTypeHelicopter => "Helicopter",
+                MavType.MavTypeHexarotor => "HexaCopter",
+                MavType.MavTypeOctorotor => "OctoCopter",
+                MavType.MavTypeTricopter => "TriCopter",
+                MavType.MavTypeFixedWing => "Fixed Wing",
+                MavType.MavTypeGroundRover => "Rover",
+                MavType.MavTypeSubmarine => "Submarine",
+                MavType.MavTypeSurfaceBoat => "Boat",
+                MavType.MavTypeAirship => "Airship",
+                MavType.MavTypeVtolTiltrotor => "VTOL Tiltrotor",
+                MavType.MavTypeVtolTailsitter => "VTOL Tailsitter",
+                MavType.MavTypeVtolTiltwing => "VTOL Tiltwing",
+                MavType.MavTypeAntennaTracker => "Antenna Tracker",
+                MavType.MavTypeGcs => "Ground Control Station",
+                _ => $"Unknown ({vehicleType})"
+            };
         }
 
         /// <summary>
