@@ -272,6 +272,12 @@ namespace PavamanDroneConfigurator.Infrastructure.MAVLink
         {
             try
             {
+                // Guard against execution during shutdown
+                if (_heartbeatTimer == null)
+                {
+                    return;
+                }
+
                 // Only check timeout if we've already received at least one heartbeat
                 if (IsHeartbeatReceived)
                 {
