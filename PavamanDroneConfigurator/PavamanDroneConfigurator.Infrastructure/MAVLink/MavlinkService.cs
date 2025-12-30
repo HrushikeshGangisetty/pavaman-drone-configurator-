@@ -22,8 +22,15 @@ namespace PavamanDroneConfigurator.Infrastructure.MAVLink
         private byte _componentId;
         private string _vehicleType = "Unknown";
 
+        // MAVLink V2 protocol constants
+        private const int MAVLINK_V2_MAX_PACKET_SIZE = 280; // Max MAVLink V2 packet size
+        private const int MAVLINK_V2_HEADER_SIZE = 10; // MAVLink V2 header size (STX + 9 bytes)
+        private const byte MAVLINK_V2_STX = 0xFD; // MAVLink V2 start marker
+        private const int MAVLINK_V2_CRC_SIZE = 2; // CRC size
+        private const int MAVLINK_V2_SIGNATURE_SIZE = 13; // Signature size
+
         // MAVLink V2 parsing state
-        private byte[] _buffer = new byte[280]; // Max MAVLink V2 packet size
+        private byte[] _buffer = new byte[MAVLINK_V2_MAX_PACKET_SIZE];
         private int _bufferIndex = 0;
         private enum ParserState { WaitingForStart, GotStart, InPacket }
         private ParserState _state = ParserState.WaitingForStart;
@@ -131,7 +138,7 @@ namespace PavamanDroneConfigurator.Infrastructure.MAVLink
                 switch (_state)
                 {
                     case ParserState.WaitingForStart:
-                        if (data == 0xFD) // MAVLink V2 start marker
+                        if (data == MAVLINK_V2_STX)
                         {
                             _buffer[0] = data;
                             _bufferIndex = 1;
@@ -140,18 +147,21 @@ namespace PavamanDroneConfigurator.Infrastructure.MAVLink
                         break;
 
                     case ParserState.GotStart:
-                        _buffer[_bufferIndex++] = data;
-                        if (_bufferIndex == 10) // Header complete (STX + 9 header bytes)
+                        if (_bufferIndex < _buffer.Length)
+                        {
+                            _buffer[_bufferIndex++] = data;
+                        }
+                        if (_bufferIndex == MAVLINK_V2_HEADER_SIZE)
                         {
                             // Calculate expected packet length
                             byte payloadLength = _buffer[1];
-                            _expectedLength = 12 + payloadLength + 2; // Header(10) + Payload + CRC(2)
+                            _expectedLength = MAVLINK_V2_HEADER_SIZE + payloadLength + MAVLINK_V2_CRC_SIZE;
                             
                             // Add signature length if present
                             byte incompatFlags = _buffer[2];
                             if ((incompatFlags & 0x01) != 0) // Signature flag
                             {
-                                _expectedLength += 13;
+                                _expectedLength += MAVLINK_V2_SIGNATURE_SIZE;
                             }
 
                             _state = ParserState.InPacket;
@@ -159,7 +169,10 @@ namespace PavamanDroneConfigurator.Infrastructure.MAVLink
                         break;
 
                     case ParserState.InPacket:
-                        _buffer[_bufferIndex++] = data;
+                        if (_bufferIndex < _buffer.Length)
+                        {
+                            _buffer[_bufferIndex++] = data;
+                        }
                         if (_bufferIndex >= _expectedLength)
                         {
                             // Full packet received, process it
