@@ -108,11 +108,17 @@ namespace PavamanDroneConfigurator.Infrastructure.MAVLink
                 // Store the port reference
                 _port = port;
 
+                // Log port status
+                _logger.LogInformation("Port enabled status: {IsEnabled}", _port.IsEnabled.CurrentValue);
+
                 // Subscribe to port data and parse MAVLink packets  
                 _portSubscription = _port.OnReceive.Subscribe(dataArray =>
                 {
                     try
                     {
+                        // Log data reception for diagnostics
+                        _logger.LogDebug("Received {Count} bytes from port", dataArray.Length);
+                        
                         // Process each byte in the received data
                         foreach (var data in dataArray)
                         {
@@ -154,6 +160,7 @@ namespace PavamanDroneConfigurator.Infrastructure.MAVLink
                             _buffer[0] = data;
                             _bufferIndex = 1;
                             _state = ParserState.GotStart;
+                            _logger.LogDebug("Found MAVLink V2 start marker (0xFD)");
                         }
                         break;
 
@@ -175,6 +182,7 @@ namespace PavamanDroneConfigurator.Infrastructure.MAVLink
                                 _expectedLength += MAVLINK_V2_SIGNATURE_SIZE;
                             }
 
+                            _logger.LogDebug("MAVLink V2 header complete, expecting {Length} bytes total", _expectedLength);
                             _state = ParserState.InPacket;
                         }
                         break;
@@ -187,6 +195,7 @@ namespace PavamanDroneConfigurator.Infrastructure.MAVLink
                         if (_bufferIndex >= _expectedLength)
                         {
                             // Full packet received, process it
+                            _logger.LogDebug("Complete MAVLink packet received ({Length} bytes)", _bufferIndex);
                             ProcessPacket();
                             
                             // Reset parser
@@ -217,6 +226,9 @@ namespace PavamanDroneConfigurator.Infrastructure.MAVLink
                 byte componentId = _buffer[6];
                 uint messageId = (uint)(_buffer[7] | (_buffer[8] << 8) | (_buffer[9] << 16));
 
+                _logger.LogDebug("Processing MAVLink packet: MsgId={MessageId}, SysId={SystemId}, CompId={ComponentId}, PayloadLen={PayloadLength}", 
+                    messageId, systemId, componentId, payloadLength);
+
                 // Check if this is a HEARTBEAT message (ID = 0)
                 if (messageId == 0 && payloadLength >= 9)
                 {
@@ -239,6 +251,10 @@ namespace PavamanDroneConfigurator.Infrastructure.MAVLink
                         _logger.LogInformation(
                             "MAVLink heartbeat received from System {SystemId}, Component {ComponentId}, Type: {VehicleType}",
                             SystemId, ComponentId, VehicleType);
+                    }
+                    else
+                    {
+                        _logger.LogDebug("Heartbeat received from System {SystemId}", SystemId);
                     }
                 }
             }
