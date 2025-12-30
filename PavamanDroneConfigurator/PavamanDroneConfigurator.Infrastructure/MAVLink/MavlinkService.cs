@@ -132,8 +132,9 @@ namespace PavamanDroneConfigurator.Infrastructure.MAVLink
                 });
 
                 // Start heartbeat monitoring timer (check every second)
-                _heartbeatTimer = new Timer(CheckHeartbeatTimeout, null, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
+                // Set last heartbeat time before timer starts to avoid false timeout
                 _lastHeartbeatTime = DateTime.UtcNow;
+                _heartbeatTimer = new Timer(CheckHeartbeatTimeout, null, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
 
                 _logger.LogInformation("MAVLink service initialized successfully, listening for heartbeat");
             }
@@ -296,9 +297,8 @@ namespace PavamanDroneConfigurator.Infrastructure.MAVLink
             {
                 _logger.LogInformation("Stopping MAVLink service");
 
-                // Stop heartbeat timer with proper synchronization
-                var timer = _heartbeatTimer;
-                _heartbeatTimer = null;
+                // Stop heartbeat timer with atomic disposal to prevent race conditions
+                var timer = Interlocked.Exchange(ref _heartbeatTimer, null);
                 timer?.Dispose();
 
                 // Unsubscribe from port data
