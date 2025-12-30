@@ -1,4 +1,5 @@
 using System;
+using System.Threading;
 using Asv.IO;
 using Asv.Mavlink.Minimal;
 using Microsoft.Extensions.Logging;
@@ -21,6 +22,9 @@ namespace PavamanDroneConfigurator.Infrastructure.MAVLink
         private byte _systemId;
         private byte _componentId;
         private string _vehicleType = "Unknown";
+        private Timer? _heartbeatTimer;
+        private DateTime _lastHeartbeatTime;
+        private readonly TimeSpan _heartbeatTimeout = TimeSpan.FromSeconds(5); // 5 seconds timeout
 
         // MAVLink V2 protocol constants
         private const int MAVLINK_V2_MAX_PACKET_SIZE = 280; // Max MAVLink V2 packet size
@@ -84,6 +88,9 @@ namespace PavamanDroneConfigurator.Infrastructure.MAVLink
         public event EventHandler<bool>? HeartbeatStateChanged;
 
         /// <inheritdoc/>
+        public event EventHandler? HeartbeatLost;
+
+        /// <inheritdoc/>
         public void Initialize(IPort port)
         {
             if (port == null)
@@ -101,11 +108,17 @@ namespace PavamanDroneConfigurator.Infrastructure.MAVLink
                 // Store the port reference
                 _port = port;
 
+                // Log port status
+                _logger.LogInformation("Port enabled status: {IsEnabled}", _port.IsEnabled.CurrentValue);
+
                 // Subscribe to port data and parse MAVLink packets  
                 _portSubscription = _port.OnReceive.Subscribe(dataArray =>
                 {
                     try
                     {
+                        // Log data reception for diagnostics
+                        _logger.LogDebug("Received {Count} bytes from port", dataArray.Length);
+                        
                         // Process each byte in the received data
                         foreach (var data in dataArray)
                         {
@@ -117,6 +130,11 @@ namespace PavamanDroneConfigurator.Infrastructure.MAVLink
                         _logger.LogError(ex, "Error processing MAVLink data");
                     }
                 });
+
+                // Start heartbeat monitoring timer (check every second)
+                // Set last heartbeat time before timer starts to avoid false timeout
+                _lastHeartbeatTime = DateTime.UtcNow;
+                _heartbeatTimer = new Timer(CheckHeartbeatTimeout, null, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
 
                 _logger.LogInformation("MAVLink service initialized successfully, listening for heartbeat");
             }
@@ -143,6 +161,7 @@ namespace PavamanDroneConfigurator.Infrastructure.MAVLink
                             _buffer[0] = data;
                             _bufferIndex = 1;
                             _state = ParserState.GotStart;
+                            _logger.LogDebug("Found MAVLink V2 start marker (0xFD)");
                         }
                         break;
 
@@ -164,6 +183,7 @@ namespace PavamanDroneConfigurator.Infrastructure.MAVLink
                                 _expectedLength += MAVLINK_V2_SIGNATURE_SIZE;
                             }
 
+                            _logger.LogDebug("MAVLink V2 header complete, expecting {Length} bytes total", _expectedLength);
                             _state = ParserState.InPacket;
                         }
                         break;
@@ -176,6 +196,7 @@ namespace PavamanDroneConfigurator.Infrastructure.MAVLink
                         if (_bufferIndex >= _expectedLength)
                         {
                             // Full packet received, process it
+                            _logger.LogDebug("Complete MAVLink packet received ({Length} bytes)", _bufferIndex);
                             ProcessPacket();
                             
                             // Reset parser
@@ -206,6 +227,9 @@ namespace PavamanDroneConfigurator.Infrastructure.MAVLink
                 byte componentId = _buffer[6];
                 uint messageId = (uint)(_buffer[7] | (_buffer[8] << 8) | (_buffer[9] << 16));
 
+                _logger.LogDebug("Processing MAVLink packet: MsgId={MessageId}, SysId={SystemId}, CompId={ComponentId}, PayloadLen={PayloadLength}", 
+                    messageId, systemId, componentId, payloadLength);
+
                 // Check if this is a HEARTBEAT message (ID = 0)
                 if (messageId == 0 && payloadLength >= 9)
                 {
@@ -218,6 +242,9 @@ namespace PavamanDroneConfigurator.Infrastructure.MAVLink
                     ComponentId = componentId;
                     VehicleType = GetVehicleTypeName((MavType)mavType);
 
+                    // Update last heartbeat time
+                    _lastHeartbeatTime = DateTime.UtcNow;
+
                     // Update heartbeat state if this is the first heartbeat
                     if (!IsHeartbeatReceived)
                     {
@@ -225,6 +252,10 @@ namespace PavamanDroneConfigurator.Infrastructure.MAVLink
                         _logger.LogInformation(
                             "MAVLink heartbeat received from System {SystemId}, Component {ComponentId}, Type: {VehicleType}",
                             SystemId, ComponentId, VehicleType);
+                    }
+                    else
+                    {
+                        _logger.LogDebug("Heartbeat received from System {SystemId}", SystemId);
                     }
                 }
             }
@@ -234,12 +265,47 @@ namespace PavamanDroneConfigurator.Infrastructure.MAVLink
             }
         }
 
+        /// <summary>
+        /// Checks if heartbeat has timed out.
+        /// </summary>
+        private void CheckHeartbeatTimeout(object? state)
+        {
+            try
+            {
+                // Guard against execution during shutdown
+                if (_heartbeatTimer == null)
+                {
+                    return;
+                }
+
+                // Only check timeout if we've already received at least one heartbeat
+                if (IsHeartbeatReceived)
+                {
+                    var timeSinceLastHeartbeat = DateTime.UtcNow - _lastHeartbeatTime;
+                    if (timeSinceLastHeartbeat > _heartbeatTimeout)
+                    {
+                        _logger.LogWarning("Heartbeat timeout - no heartbeat received for {Timeout} seconds", _heartbeatTimeout.TotalSeconds);
+                        IsHeartbeatReceived = false;
+                        HeartbeatLost?.Invoke(this, EventArgs.Empty);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error checking heartbeat timeout");
+            }
+        }
+
         /// <inheritdoc/>
         public void Stop()
         {
             try
             {
                 _logger.LogInformation("Stopping MAVLink service");
+
+                // Stop heartbeat timer with atomic disposal to prevent race conditions
+                var timer = Interlocked.Exchange(ref _heartbeatTimer, null);
+                timer?.Dispose();
 
                 // Unsubscribe from port data
                 _portSubscription?.Dispose();

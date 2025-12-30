@@ -35,6 +35,11 @@ namespace PavamanDroneConfigurator.Core.Interfaces
         event EventHandler<bool>? HeartbeatStateChanged;
 
         /// <summary>
+        /// Occurs when heartbeat is lost (no heartbeat received for timeout period).
+        /// </summary>
+        event EventHandler? HeartbeatLost;
+
+        /// <summary>
         /// Initializes the MAVLink client with the specified port.
         /// </summary>
         /// <param name="port">The communication port.</param>

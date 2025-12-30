@@ -41,10 +41,9 @@ namespace PavamanDroneConfigurator.Core.ViewModels
             _mavlinkService = mavlinkService ?? throw new ArgumentNullException(nameof(mavlinkService));
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
 
-            // Subscribe to connection state changes
-            _serialPortService.ConnectionStateChanged += OnConnectionStateChanged;
-            _tcpConnectionService.ConnectionStateChanged += OnConnectionStateChanged;
+            // Subscribe to heartbeat state changes (which will set IsConnected)
             _mavlinkService.HeartbeatStateChanged += OnHeartbeatStateChanged;
+            _mavlinkService.HeartbeatLost += OnHeartbeatLost;
 
             // Initialize connection types
             AvailableConnectionTypes = new List<ConnectionType> { ConnectionType.Serial, ConnectionType.Tcp };
@@ -276,14 +275,16 @@ namespace PavamanDroneConfigurator.Core.ViewModels
                     {
                         _logger.LogInformation("Initializing MAVLink on serial port");
                         _mavlinkService.Initialize(_serialPortService.Port);
+                        StatusMessage = $"Port opened. Waiting for heartbeat...";
                     }
                     else
                     {
                         _logger.LogWarning("Serial port is null after connection");
+                        StatusMessage = "Failed to open serial port";
+                        _activeConnection = null;
                     }
                     
-                    StatusMessage = $"Connected to {SelectedPort} at {SelectedBaudRate} baud. Waiting for heartbeat...";
-                    _logger.LogInformation("Connected to {Port} at {BaudRate}", SelectedPort, SelectedBaudRate);
+                    _logger.LogInformation("Serial port opened: {Port} at {BaudRate}", SelectedPort, SelectedBaudRate);
                 }
                 else // TCP
                 {
@@ -312,15 +313,16 @@ namespace PavamanDroneConfigurator.Core.ViewModels
                     {
                         _logger.LogInformation("Initializing MAVLink on TCP port");
                         _mavlinkService.Initialize(_tcpConnectionService.TcpPort);
-                        StatusMessage = $"Connected to {TcpHost}:{TcpPort}. Waiting for heartbeat...";
+                        StatusMessage = $"TCP connected. Waiting for heartbeat...";
                     }
                     else
                     {
                         _logger.LogWarning("TCP port is null after connection");
-                        StatusMessage = $"TCP connection established to {TcpHost}:{TcpPort} but MAVLink port unavailable";
+                        StatusMessage = $"TCP connection failed - port unavailable";
+                        _activeConnection = null;
                     }
                     
-                    _logger.LogInformation("Connected to {Host}:{Port}", TcpHost, TcpPort);
+                    _logger.LogInformation("TCP port opened: {Host}:{Port}", TcpHost, TcpPort);
                 }
             }
             catch (System.Net.Sockets.SocketException ex)
@@ -416,17 +418,6 @@ namespace PavamanDroneConfigurator.Core.ViewModels
         }
 
         /// <summary>
-        /// Handles connection state changes from the connection services.
-        /// </summary>
-        /// <param name="sender">Event sender.</param>
-        /// <param name="isConnected">New connection state.</param>
-        private void OnConnectionStateChanged(object? sender, bool isConnected)
-        {
-            IsConnected = isConnected;
-            // Commands are already notified via OnIsConnectedChanged
-        }
-
-        /// <summary>
         /// Handles heartbeat state changes from the MAVLink service.
         /// </summary>
         /// <param name="sender">Event sender.</param>
@@ -435,16 +426,30 @@ namespace PavamanDroneConfigurator.Core.ViewModels
         {
             if (isHeartbeatReceived)
             {
+                // Only now do we consider the connection fully established
+                IsConnected = true;
                 StatusMessage = $"Connected - Heartbeat received from System {_mavlinkService.SystemId} (Type: {_mavlinkService.VehicleType})";
-                _logger.LogInformation("Heartbeat received from System {SystemId}", _mavlinkService.SystemId);
+                _logger.LogInformation("Heartbeat received from System {SystemId} - Connection fully established", _mavlinkService.SystemId);
             }
             else
             {
-                if (IsConnected)
+                if (!IsConnected)
                 {
-                    StatusMessage = "Connected but no heartbeat received";
+                    StatusMessage = "Waiting for heartbeat...";
                 }
             }
+        }
+
+        /// <summary>
+        /// Handles heartbeat loss from the MAVLink service.
+        /// </summary>
+        /// <param name="sender">Event sender.</param>
+        /// <param name="e">Event arguments.</param>
+        private void OnHeartbeatLost(object? sender, EventArgs e)
+        {
+            _logger.LogWarning("Heartbeat lost - Connection lost");
+            IsConnected = false;
+            StatusMessage = "Disconnected - Heartbeat lost";
         }
     }
 }
