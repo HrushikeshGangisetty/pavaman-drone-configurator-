@@ -271,6 +271,7 @@ namespace PavamanDroneConfigurator.Infrastructure.MAVLink
         {
             try
             {
+                // Only check timeout if we've already received at least one heartbeat
                 if (IsHeartbeatReceived)
                 {
                     var timeSinceLastHeartbeat = DateTime.UtcNow - _lastHeartbeatTime;
@@ -295,9 +296,10 @@ namespace PavamanDroneConfigurator.Infrastructure.MAVLink
             {
                 _logger.LogInformation("Stopping MAVLink service");
 
-                // Stop heartbeat timer
-                _heartbeatTimer?.Dispose();
+                // Stop heartbeat timer with proper synchronization
+                var timer = _heartbeatTimer;
                 _heartbeatTimer = null;
+                timer?.Dispose();
 
                 // Unsubscribe from port data
                 _portSubscription?.Dispose();
